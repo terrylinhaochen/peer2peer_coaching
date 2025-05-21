@@ -3,16 +3,25 @@ import json
 import pandas as pd
 from pathlib import Path
 import os
-from openai import OpenAI
+# Try alternative import approach
+try:
+    from openai import OpenAI
+    client = OpenAI(api_key=st.secrets["openai"]["OPENAI_API_KEY"] if "openai" in st.secrets else os.getenv("OPENAI_API_KEY"))
+except ImportError:
+    # Fallback to older API
+    import openai
+    openai.api_key = st.secrets["openai"]["OPENAI_API_KEY"] if "openai" in st.secrets else os.getenv("OPENAI_API_KEY")
+    client = openai
 import numpy as np
 from dotenv import load_dotenv
 import time
 
-# Load environment variables
+# Load environment variables (for local development)
 load_dotenv()
 
-# Setup API clients
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client - check both Streamlit secrets and environment variables
+api_key = st.secrets["openai"]["OPENAI_API_KEY"] if "openai" in st.secrets else os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
 
 # Initialize session state for tracking UI flow
 if 'page' not in st.session_state:
