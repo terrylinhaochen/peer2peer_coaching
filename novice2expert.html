@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novice to Expert Learning System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #4B5563;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+        .app-container {
+            flex: 1;
+            border: none;
+            width: 100%;
+            min-height: 800px;
+        }
+        footer {
+            background-color: #4B5563;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Novice to Expert Learning System</h1>
+    </header>
+    
+    <div class="container">
+        <!-- Embed the Streamlit app in an iframe -->
+        <iframe 
+            src="http://localhost:8501" 
+            class="app-container"
+            allowfullscreen>
+        </iframe>
+    </div>
+    
+    <footer>
+        <p>&copy; 2023 Regulation Gap Learning System</p>
+    </footer>
+</body>
+</html>
