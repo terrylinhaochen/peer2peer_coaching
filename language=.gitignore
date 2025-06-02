@@ -100,6 +100,7 @@ Thumbs.db
 
 # Streamlit specific
 .streamlit/secrets.toml
+.streamlit/
 
 # Project specific
 *.log 
