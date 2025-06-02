@@ -1,9 +1,9 @@
-streamlit==1.30.0
-openai==1.6.0
-numpy==1.26.0
-pandas==2.1.0
-python-dotenv==1.0.0
-tiktoken==0.6.0  # Required by the OpenAI library
+streamlit>=1.35.0
+openai>=1.30.0
+numpy>=1.26.2
+pandas>=2.2.0
+python-dotenv>=1.0.0
+tiktoken>=0.7.0  # Updated for Python 3.13 compatibility
 typing-extensions>=4.7.1  # Required by the OpenAI library
-pydub==0.25.1  # For audio processing
+pydub>=0.25.1  # For audio processing
 # Add any other dependencies your project needs 
