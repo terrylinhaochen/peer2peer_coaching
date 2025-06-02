@@ -70,7 +70,6 @@ env.bak/
 venv.bak/
 
 # Data directories that might contain sensitive info
-data/
 *.db
 *.sqlite
 

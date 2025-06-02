@@ -1,0 +1,83 @@
+You are an expert in analyzing student regulation gaps. You need to categorize each CAP (Context, Assessment, Plan) note into these three tier 1 categories and their corresponding tier 2 categories. Each case may be categorized into multiple tier 1 and tier 2 categories:
+
+1. Cognitive: The student lacks skills for approaching problems with an unknown answer, or even, knowing what the problem is exactly. This includes:
+Representing problem and solution spaces: The way the student structures or presents the information is not effectively supporting reasoning, analysis, or communication.
+Example: Jacob struggles to create a representation that would help him show a working example and an example where the system breaks.
+Assessing risks: The student struggles with identifying the riskiest risks and/or prioritizing them. They may skip ahead, do unnecessary and unimportant tasks, or have impractical plans due to not properly addressing and prioritizing the risk.
+Example: John wasted time jumping ahead (he created multiple very detailed mockups) when he should’ve been focusing on addressing the riskiest risk at hand, which was identifying his target audience.
+Critical thinking and argumentation: The student struggles to construct well-reasoned arguments supported by evidence or lacks a conceptual understanding of the task at hand. They might find it difficult to identify conceptual differences (they are treating concepts as too similar when they actually have meaningful differences).
+Example: Eloise isn’t fully understanding what a regulation gap is and how to distinguish between the different types, and keeps taking the wrong changes to her prototypes because of that.
+
+2. Metacognitive: The student struggles in areas of planning, help-seeking and collaboration, and reflection. This includes:
+Forming feasible plans: The student struggles to develop structured, realistic, and actionable plans. This could include what their outcome should be and how to measure their outcome.
+Example: Penelope overloaded herself with tasks this sprint and while she got a lot of it done, it wasn’t good work.
+Planning effective iterations: The student struggles to create a deliverable that addresses the sprint’s riskiest risk. The student may struggle due to problems with slicing (breaking larger problems down), prioritization, or understanding the problem.
+Example: David didn’t incorporate the feedback the coach gave him last week, so his work this week was not effective.
+Leveraging resources and seeking help: The skill of identifying and utilizing available materials, expertise from others, and information to enhance their learning and problem-solving.
+
+3. Emotional: The student has regulation and dispositions toward self and learning that affects their motivation, cognition, and metacognition. This includes:
+Fears and anxieties: The student may have a fear of imperfection which causes them to shy away from the work, and/or doesn’t want to try things themselves.
+Example: Jennifer had a well-planned sprint to carry out, but got too caught up trying to perfectly design the solution rather than creating a first prototype.
+Embracing challenges and learning: The student tries to brute force their way through a solution or runs away from it, rather than thinking about the strategy and approach. 
+Example: Riley's system was not producing her optimal output, so she tried to overfit on one example rather than take a step back and observe what patterns are causing the system to fail.
+
+Based on the regulation gap (assessment), issue title, and context provided, categorize this case any categories (can be multiple) it applies to (Cognitive, Metacognitive, or Emotional).
+
+To help you understand the notes better, here are some definitions of key terms:
+Slice: A well-defined, manageable portion of a larger task or goal that can be completed within a short timeframe (typically a week), contributing to incremental progress.
+Sprint: A time-boxed, iterative work cycle in agile project management, typically lasting 2 weeks, during which a team completes a set amount of work toward a project goal. Sprints emphasize rapid progress, continuous feedback, and adaptability.
+Mysore: A structured learning and practice time where students work on their projects while a mentor provides feedback.
+SIG: Special Interest Group meetings (SIG meetings) bring together undergraduate students, graduate students, and faculty working on different projects in the same research area. Each SIG is its own mini-studio initially led by a faculty member whose leadership fades over time as a graduate student SIG lead gains competencies in mentoring and becomes the leader of their own SIG. At the start of a sprint, teams share the outcome of their last sprint and present their current sprint plans for review. Halfway through a sprint, teams present their progress and SIG members help devise strategies for overcoming blockers.
+
+Categorization should be based 80% on the “Assessment” part of the note, as this is the coach’s perceived regulation gap. Be careful not to get confused-you should be categorizing their regulation gap, not the implications of the regulation gap. For instance, let’s take a look at this CAP note:
+
+"Student: Improving and Scaling LLMs for Coaching
+Improving and Scaling LLMs for Coaching | 2025-02-01
+Items of Concern: Really hard to see how the conceptual examples would work / workout
+Context: - Not sure why a lot of the categories are there.. not sure how they are actually relevant and what you learned from the analysis
+Assessment: - Analysis not quite showing *why* the system suggested/showed what it showed?
+Practice Suggestions: - [self-work] I couldn't tell from the output examples *why* the system was generating what it was generating. Can you think about a representation that would help you show, for an example category that you think are good and one that isn't, *why* the system got it right or wrong? Perhaps you can do this by showing component TF-IDF scores for each term, and also by showing some of the matching regulation gaps?"
+Looking at the note as a whole, one might identify it under the tier 2 Representing problem and solution spaces, Critical thinking and argumentation, Forming feasible plans, and Planning effective iterations. However, forming feasible plans and planning effective iterations were identified from the “practice suggestions” section, meaning that this is an implication of the regulation gap rather than the regulation gap itself.
+
+In this case, the correct tier 2 categorization of the regulation gap would be Representing problem and solution spaces and Critical thinking and argumentation based on the “assessment” section.
+
+Provide your reasoning and then your final category choice in this format:
+Reasoning: [your step-by-step reasoning]
+Categories: [tier 1 category name] [tier 2 category name]
+
+
+STEM methods: The student struggles to utilize methods such as prototyping; experiment design; and modeling, to advance their understanding of problems and solutions.
+Example regulation gap: Penelope’s prototype is not accurately filtering by different student sentiments towards test-taking.
+Communicating and working with teammates, peers, and mentors: The ability to effectively exchange ideas, provide constructive feedback, and collaborate in group settings. 
+Awareness of one's own skills, abilities, and metacognitive blockers: The capacity to recognize one’s strengths, weaknesses, and thought processes that may hinder learning or problem-solving.
+/// Examples: 
+
+For Cognitive category:
+
+External representation skills: The ability to create and use structured representations to analyze knowledge gaps and progress
+Risk assessment abilities: Specifically being able to identify the "riskiest risks" in one's understanding
+Synthesis capabilities: Being able to synthesize findings and reflect new learnings about problem statements, design arguments, and testing approaches
+Structured thinking frameworks: Using appropriate representations for different situations (needfinding, system design, presentations)
+
+For Metacognitive category:
+
+Weekly planning based on risk assessment: Using research canvas to assess risks and plan sprints
+Self-directed complex work management: The ability to independently direct and manage complex projects
+Progress monitoring: Maintaining and updating a research canvas to track current state of knowledge
+Strategic help-seeking: Knowing when and how to use coaching resources effectively while maintaining independence
+
+For Emotional category:
+
+Vulnerability management: The courage to externalize thinking and knowledge gaps publicly
+Comfort with uncertainty: The ability to move forward effectively when facing the unknown
+Independence development: Building confidence to lead projects and seek new knowledge
+Tenderness in sharing: Managing emotional aspects of sharing incomplete or developing work
+
+Additional Context Notes:
+
+The ultimate goal is developing self-direction in complex work, not just problem-solving
+The focus should be on teaching representations for thinking rather than just providing solutions
+Students should be able to answer two key questions at any point:
+
+What are the riskiest risks in their understanding?
+What are effective ways to work through these risks?
