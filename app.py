@@ -7,7 +7,6 @@ import numpy as np
 from dotenv import load_dotenv
 import time
 import io
-from pydub import AudioSegment
 
 # Load environment variables (for local development)
 load_dotenv()
