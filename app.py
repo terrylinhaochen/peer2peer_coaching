@@ -973,62 +973,50 @@ if st.session_state.page == 'input':
     st.write("Experience the complete analysis workflow with real coaching conversation data")
     
     if st.button("Run Sample Analysis", type="primary", use_container_width=True):
-            # Load sample audio file
-            try:
-                with open("sample_sig.m4a", "rb") as f:
-                    sample_audio_bytes = f.read()
-                
-                st.session_state.meeting_type = "SIG Meeting"  # Set appropriate meeting type
-                
-                # Process the sample audio through the same workflow
-                with st.spinner("Processing sample audio... (this may take ~2 minutes)"):
-                    # Transcribe the sample audio
-                    transcription = transcribe_audio(sample_audio_bytes)
-                    if transcription:
-                        st.session_state.transcription = transcription
-                        
-                        # Summarize the transcription
-                        summary = summarize_transcription(transcription, "SIG Meeting")
-                        st.session_state.audio_summary = summary
-                        
-                        # Parse the summary to extract components
-                        lines = summary.split('\n')
-                        extracted_title = ""
-                        extracted_gap = ""
-                        extracted_context = ""
-                        extracted_plan = ""
-                        extracted_coach_suggestion = ""
-                        
-                        for line in lines:
-                            if "Assessment Title:" in line or "**Assessment Title:**" in line:
-                                extracted_title = line.split("Assessment Title:")[-1].replace("**", "").strip()
-                            elif "Gap (What needs improvement):" in line or "**Gap (What needs improvement):**" in line:
-                                extracted_gap = line.split("Gap (What needs improvement):")[-1].replace("**", "").strip()
-                            elif "Context:" in line or "**Context:**" in line:
-                                extracted_context = line.split("Context:")[-1].replace("**", "").strip()
-                            elif "Plan & Reflect:" in line or "**Plan & Reflect:**" in line:
-                                extracted_plan = line.split("Plan & Reflect:")[-1].replace("**", "").strip()
-                            elif "Coach Practice Suggestion:" in line or "**Coach Practice Suggestion:**" in line:
-                                extracted_coach_suggestion = line.split("Coach Practice Suggestion:")[-1].replace("**", "").strip()
-                        
-                        # Store extracted fields for editing
-                        st.session_state.extracted_fields = {
-                            'title': extracted_title if extracted_title else "Sample Assessment",
-                            'gap': extracted_gap,
-                            'context': extracted_context,
-                            'plan': extracted_plan,
-                            'coach_suggestion': extracted_coach_suggestion
-                        }
-                        
-                        # Navigate to edit page
-                        go_to_edit_page()
-                        st.rerun()
-                    else:
-                        st.error("Failed to process sample audio. Please try again.")
-            except FileNotFoundError:
-                st.error("Sample audio file not found. Please ensure sample_sig.m4a is in the project directory.")
-            except Exception as e:
-                st.error(f"Error processing sample audio: {str(e)}")
+        # Use pre-transcribed sample data for instant demo
+        sample_transcript = """So that led to our research, which is how do we scaffold a conversation, such as students ask better or deeper questions to their experienced peers, so that they can adjust their regulation gap? So just trying to come up with better question promptings so that we get better responses. I saw that. A couple things. First of all, I don't know if the bot's working, but did you get these reflection questions? I think there's a problem happening right now, but he gave us those. He sent it to us. OK, well, I can't see them, so. Oh, what it means is that if you do the reflections, yeah, they should show up here. Oh, oh, I see. OK, so I'm just letting you guys know. Well, I'm just letting you guys know. Yeah, it's not it's not. So I can't see your reflections on what you did. But we're going to keep working on. Keep working on articulating risks, so let's let's work on that a little bit. What? So right now, here's what I've heard so far. I heard we tested. Conversation went like, OK, but like maybe not so good or there's some parts like they could articulate certain things in the conversation. So we need to ask better questions. So we're going to ask better questions. That's roughly what I've heard. OK. If you're doing takeaways from user testing as you test it, it asks you to walk through. What is the new understanding that you've gained through testing with users? So often, you know, to talk about risk, it's really useful to talk about what you know, what you now know, and then to talk about what you still don't know. So it's nice to have both sides of that when you talk about a risk. So then, let's see, let's go through the sections of takeaways from user testing. Some of the first questions it asks are, what new understanding do you have? You know, there's the insights part, right? You guys know what I'm talking about when I'm saying all this, right? If you're no longer following, just pause me and then we'll put up and we'll look together. So it's like quick insights. And then it gets into like, well, did you learn anything new about the users? Like, what are their goals or what are their obstacles? And in particular, right, again, obstacles are not just what can't they do, but about why do they struggle to do the things that we want them to do or that they want to do, right? So it's understanding those why's. And then, you know, from there, there's things what you learn about your design and where it's working, where it's not. So I'm curious. So the first part about obstacles is, I haven't heard anything about why they struggle to do certain things, right? Like why are they bad at articulating their issues and the regulation gaps and what new things have you learned about that? Does that make sense? So that's something I'm curious about. And then on the solution side, well, you have some design arguments. Like there's some way you're trying to facilitate a conversation. So what did you learn about, right? And you had an argument about why they shouldn't get over the obstacles you thought were challenges. Do you need something? Well, not contagious. I've just been having a cough. She's been like that for two weeks. Sorry. So obstacles. And then what are the characteristics of your tool that's supposed to facilitate conversations along these lines? I'm assuming they're not working. This is still happening. But why aren't they working? Because you had an argument for why they should have worked and what obstacles they should have gotten over. So was there a new obstacle you didn't anticipate? Or is it that your argument about why it would get over the current obstacle didn't work? And so from there, I'm still walking you down takeaways from user testing. There's going to be something about your testing setup. So the question is about, is your testing setup helping you understand the things you want to understand? And some of it, the questions I just asked you about the obstacles, about how the design argument is working, it's possible. That your testing setup allowed you to understand those things or made it really hard to actually understand those things. So you saw that they were bad at articulating, but you don't really understand why. You saw that the argument didn't work, but you don't really understand which specific part of the argument broke down. And that might suggest that the testing setup has to be improved. So I'll just pause there. Does that all make sense? Any questions about any of that? I'm not asking you what to do about it yet, but does that all make sense? Okay, so good. So let's go back to here, right? And I know this is like a week ago, a week ago. But still, to help us follow along with your story, because this very quickly jumped into, they're bad at this, so let's just fix this. What were you able to learn about the things, about obstacles, about the design argument, about the testing setup? And are there anything there that are important for us to be thinking about as we tackle this question? Because now it just basically says, it didn't work, so we need to do better. It's not very helpful. I think one of the ways I think about this is, imagine you don't get the design, you just get to present the takeaways. Does that make sense? So you present the takeaways, let's say, to Lynn and Grace, and you tell them, well, students are bad at articulating, go make better questions. So they're sitting there and they're like, okay, great, we got to make better questions, but they're like, you want to tell us what would help us make better questions? Because without it, how are they going to do any better than they did on the last attempt? Okay, good, so let's try again, and if you don't have the answers to some of these questions, that's good too, but that might tell us something about the testing setup, right? So one way or another, we're going to learn something."""
+        
+        st.session_state.meeting_type = "SIG Meeting"
+        st.session_state.transcription = sample_transcript
+        
+        # Process sample transcript instantly
+        with st.spinner("Analyzing sample transcript..."):
+            # Summarize the sample transcription
+            summary = summarize_transcription(sample_transcript, "SIG Meeting")
+            st.session_state.audio_summary = summary
+            
+            # Parse the summary to extract components
+            lines = summary.split('\n')
+            extracted_title = ""
+            extracted_gap = ""
+            extracted_context = ""
+            extracted_plan = ""
+            extracted_coach_suggestion = ""
+            
+            for line in lines:
+                if "Assessment Title:" in line or "**Assessment Title:**" in line:
+                    extracted_title = line.split("Assessment Title:")[-1].replace("**", "").strip()
+                elif "Gap (What needs improvement):" in line or "**Gap (What needs improvement):**" in line:
+                    extracted_gap = line.split("Gap (What needs improvement):")[-1].replace("**", "").strip()
+                elif "Context:" in line or "**Context:**" in line:
+                    extracted_context = line.split("Context:")[-1].replace("**", "").strip()
+                elif "Plan & Reflect:" in line or "**Plan & Reflect:**" in line:
+                    extracted_plan = line.split("Plan & Reflect:")[-1].replace("**", "").strip()
+                elif "Coach Practice Suggestion:" in line or "**Coach Practice Suggestion:**" in line:
+                    extracted_coach_suggestion = line.split("Coach Practice Suggestion:")[-1].replace("**", "").strip()
+            
+            # Store extracted fields for editing
+            st.session_state.extracted_fields = {
+                'title': extracted_title if extracted_title else "Sample Assessment",
+                'gap': extracted_gap,
+                'context': extracted_context,
+                'plan': extracted_plan,
+                'coach_suggestion': extracted_coach_suggestion
+            }
+            
+            # Navigate to edit page
+            go_to_edit_page()
+            st.rerun()
     
     st.markdown("---")
     st.subheader("Upload Your Own Audio")
