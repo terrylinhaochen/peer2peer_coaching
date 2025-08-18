@@ -941,6 +941,7 @@ st.markdown("""
 # MAIN UI LOGIC
 st.title("Novice to Expert Learning System")
 
+
 # INPUT PAGE
 if st.session_state.page == 'input':
     # Meeting type selector
@@ -962,7 +963,75 @@ if st.session_state.page == 'input':
         st.write("Upload your peer discussion audio file (MP3 format). The system will transcribe and organize your student-student conversation into structured fields for review.")
     
     # Show estimated processing time
-    st.info("⏱️ **Estimated processing time:** ~2 minutes for transcription and summarization")
+    st.info("**Estimated processing time:** ~2 minutes for transcription and summarization")
+    
+    # Sample demo section
+    st.markdown("---")
+    st.subheader("See a Sample Run")
+    st.write("This is a sample recording of a Special Interest Group within the Design Technology and Research class at Northwestern, focusing on dialogue where the coach asks various questions to perceive and identify the regulation gaps students have encountered that week.")
+    
+    st.write("Experience the complete analysis workflow with real coaching conversation data")
+    
+    if st.button("Run Sample Analysis", type="primary", use_container_width=True):
+            # Load sample audio file
+            try:
+                with open("sample_sig.m4a", "rb") as f:
+                    sample_audio_bytes = f.read()
+                
+                st.session_state.meeting_type = "SIG Meeting"  # Set appropriate meeting type
+                
+                # Process the sample audio through the same workflow
+                with st.spinner("Processing sample audio... (this may take ~2 minutes)"):
+                    # Transcribe the sample audio
+                    transcription = transcribe_audio(sample_audio_bytes)
+                    if transcription:
+                        st.session_state.transcription = transcription
+                        
+                        # Summarize the transcription
+                        summary = summarize_transcription(transcription, "SIG Meeting")
+                        st.session_state.audio_summary = summary
+                        
+                        # Parse the summary to extract components
+                        lines = summary.split('\n')
+                        extracted_title = ""
+                        extracted_gap = ""
+                        extracted_context = ""
+                        extracted_plan = ""
+                        extracted_coach_suggestion = ""
+                        
+                        for line in lines:
+                            if "Assessment Title:" in line or "**Assessment Title:**" in line:
+                                extracted_title = line.split("Assessment Title:")[-1].replace("**", "").strip()
+                            elif "Gap (What needs improvement):" in line or "**Gap (What needs improvement):**" in line:
+                                extracted_gap = line.split("Gap (What needs improvement):")[-1].replace("**", "").strip()
+                            elif "Context:" in line or "**Context:**" in line:
+                                extracted_context = line.split("Context:")[-1].replace("**", "").strip()
+                            elif "Plan & Reflect:" in line or "**Plan & Reflect:**" in line:
+                                extracted_plan = line.split("Plan & Reflect:")[-1].replace("**", "").strip()
+                            elif "Coach Practice Suggestion:" in line or "**Coach Practice Suggestion:**" in line:
+                                extracted_coach_suggestion = line.split("Coach Practice Suggestion:")[-1].replace("**", "").strip()
+                        
+                        # Store extracted fields for editing
+                        st.session_state.extracted_fields = {
+                            'title': extracted_title if extracted_title else "Sample Assessment",
+                            'gap': extracted_gap,
+                            'context': extracted_context,
+                            'plan': extracted_plan,
+                            'coach_suggestion': extracted_coach_suggestion
+                        }
+                        
+                        # Navigate to edit page
+                        go_to_edit_page()
+                        st.rerun()
+                    else:
+                        st.error("Failed to process sample audio. Please try again.")
+            except FileNotFoundError:
+                st.error("Sample audio file not found. Please ensure sample_sig.m4a is in the project directory.")
+            except Exception as e:
+                st.error(f"Error processing sample audio: {str(e)}")
+    
+    st.markdown("---")
+    st.subheader("Upload Your Own Audio")
     
     uploaded_file = st.file_uploader(
         "Choose an audio file",
@@ -1261,11 +1330,13 @@ st.sidebar.info(
     "This tool helps diagnose student regulation gaps and provides "
     "personalized practice templates based on similar cases."
 )
-st.sidebar.title("Settings")
-st.sidebar.info(
-    "This is a prototype. In production, you would want to:"
-    "\n- Store embeddings in a vector database"
-    "\n- Add user authentication"
-    "\n- Implement proper error handling"
-    "\n- Add case feedback mechanisms"
-) 
+st.sidebar.title("Research")
+st.sidebar.info("""
+This system is based on peer-to-peer coaching research that achieved 87.5% precision in diagnosing student regulation gaps.
+
+The system diagnoses learning challenges using AI analysis of coaching conversations, matches students with similar regulation gaps for peer learning, and facilitates conversations with research-backed discussion guides.
+
+Our approach advances AI-driven coaching methodologies by combining semantic matching with structured knowledge categorization across three key domains: Cognitive Skills, Metacognitive Skills, and Emotional Regulation.
+
+Research Blog: https://chenterry.com/product/llmcoaching/
+""") 
