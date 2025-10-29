@@ -1326,5 +1326,4 @@ The system diagnoses learning challenges using AI analysis of coaching conversat
 
 Our approach advances AI-driven coaching methodologies by combining semantic matching with structured knowledge categorization across three key domains: Cognitive Skills, Metacognitive Skills, and Emotional Regulation.
 
-Research Blog: https://chenterry.com/product/llmcoaching/
 """) 
