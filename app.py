@@ -50,488 +50,29 @@ except ImportError:
 
 # Initialize session state for tracking UI flow
 if 'page' not in st.session_state:
-    st.session_state.page = 'input'  # 'input', 'edit', 'results', or 'template'
+    st.session_state.page = 'home'  # 'home', 'sig_meeting', 'peer_meeting'
 
-if 'diagnosis' not in st.session_state:
-    st.session_state.diagnosis = None
+if 'matched_peer' not in st.session_state:
+    st.session_state.matched_peer = None
 
-if 'similar_cases' not in st.session_state:
-    st.session_state.similar_cases = None
+# Navigation functions
+def go_to_home():
+    st.session_state.page = 'home'
 
-if 'current_template' not in st.session_state:
-    st.session_state.current_template = None
+def go_to_sig_meeting():
+    st.session_state.page = 'sig_meeting'
 
-if 'student_note' not in st.session_state:
-    st.session_state.student_note = None
-
-if 'selected_case' not in st.session_state:
-    st.session_state.selected_case = None
-
-if 'extracted_fields' not in st.session_state:
-    st.session_state.extracted_fields = {
-        'title': '',
-        'gap': '',
-        'context': '',
-        'plan': '',
-        'coach_suggestion': ''
+def go_to_peer_meeting():
+    st.session_state.page = 'peer_meeting'
+    # Initialize matched peer (hardcoded for now)
+    st.session_state.matched_peer = {
+        'name': 'Alex Chen',
+        'regulation_gap': 'Assessing risks in user testing',
+        'similarity_score': 0.87,
+        'shared_challenges': ['Understanding why design arguments fail', 'Articulating testing insights']
     }
 
-if 'meeting_type' not in st.session_state:
-    st.session_state.meeting_type = 'SIG Meeting'
-
-# Add new session state for tracking expanded case
-if 'expanded_case' not in st.session_state:
-    st.session_state.expanded_case = None
-
-# Load the codebook for gap analysis
-def load_codebook():
-    """Load the regulation gap codebook from various possible locations"""
-    possible_paths = [
-        "data/codebook.txt",                    # Root directory
-        "peer2peer/data/codebook.txt",          # From root running in peer2peer subfolder
-        "../data/codebook.txt",                 # One level up (if running from peer2peer)
-        os.path.join(os.path.dirname(__file__), "data/codebook.txt")  # Relative to script location
-    ]
-    
-    for path in possible_paths:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                print(f"Successfully loaded codebook from: {path}")
-                return f.read()
-        except FileNotFoundError:
-            continue
-    
-    # If we get here, we couldn't find the file
-    raise FileNotFoundError(
-        "Could not find codebook.txt in any of these locations: " + 
-        ", ".join(possible_paths) + 
-        ". Please ensure the file exists in one of these locations."
-    )
-
-# Load case studies 
-def load_case_studies():
-    """Load the tiered weighted cases from various possible locations"""
-    possible_paths = [
-        "data/tiered_weighted_cases.json",                    # Root directory
-        "peer2peer/data/tiered_weighted_cases.json",          # From root running in peer2peer subfolder
-        "../data/tiered_weighted_cases.json",                 # One level up (if running from peer2peer)
-        os.path.join(os.path.dirname(__file__), "data/tiered_weighted_cases.json")  # Relative to script location
-    ]
-    
-    for path in possible_paths:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                print(f"Successfully loaded case studies from: {path}")
-                return json.load(f)
-        except FileNotFoundError:
-            continue
-    
-    # If we get here, we couldn't find the file
-    raise FileNotFoundError(
-        "Could not find tiered_weighted_cases.json in any of these locations: " + 
-        ", ".join(possible_paths) + 
-        ". Please ensure the file exists in one of these locations."
-    )
-
-# Load templates based on gap type
-def load_template(gap_type="base"):
-    """Load the appropriate template based on gap type"""
-    template_mapping = {
-        "Assessing risks": "assessing_risks_template.md",
-        # Add other templates as they're created
-    }
-    
-    template_file = template_mapping.get(gap_type, "base_template.md")
-    possible_paths = [
-        f"templates/{template_file}",                    # Current directory
-        f"peer2peer/templates/{template_file}",          # From root running in peer2peer subfolder
-        f"../templates/{template_file}",                 # One level up (if running from peer2peer)
-        os.path.join(os.path.dirname(__file__), f"templates/{template_file}")  # Relative to script
-    ]
-    
-    for path in possible_paths:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                print(f"Successfully loaded template from: {path}")
-                return f.read()
-        except FileNotFoundError:
-            continue
-    
-    # If we get here, we couldn't find the file
-    raise FileNotFoundError(
-        f"Could not find template file {template_file} in any of these locations: " + 
-        ", ".join(possible_paths) + 
-        ". Please ensure the file exists in one of these locations."
-    )
-
-# Initialize data
-CODEBOOK = load_codebook()
-case_studies = load_case_studies()
-
-# Pre-compute embeddings for cases (in production, store these)
-@st.cache_resource
-def get_case_embeddings():
-    embeddings = {}
-    for case in case_studies:
-        case_text = f"{case.get('tier1_categories', '')} {case.get('tier2_categories', '')} {case.get('gap_text', '')} {case.get('other_content', '')}"
-        response = client.embeddings.create(
-            input=case_text,
-            model="text-embedding-ada-002"
-        )
-        embeddings[case["id"]] = response.data[0].embedding
-    return embeddings
-
-# Main app functions
-def diagnose_regulation_gap(student_note):
-    """Use Claude/GPT to diagnose the regulation gap based on the codebook"""
-    prompt = f"""You are analyzing a student's learning regulation gap.
-    
-    Based on the following codebook:
-    {CODEBOOK}
-    
-    Analyze this student note and identify the primary regulation gaps:
-    {student_note}
-    
-    Remember to focus primarily (80%) on the assessment part of the note when categorizing, as this is the coach's perceived regulation gap. Be careful not to categorize the implications of the regulation gap.
-    
-    First, provide your step-by-step reasoning, then list the categories that apply.
-    
-    Provide your response in this format:
-    Reasoning: [your step-by-step reasoning]
-    Tier 1 Categories: [comma-separated categories]
-    Tier 2 Categories: [comma-separated subcategories]
-    """
-    
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # Much cheaper than gpt-4
-        messages=[{"role": "system", "content": prompt}],
-        temperature=0.2
-    )
-    
-    analysis = response.choices[0].message.content
-    
-    # Extract tier 1 and tier 2 categories
-    tier1 = None
-    tier2 = None
-    reasoning = None
-    
-    for line in analysis.split('\n'):
-        if line.startswith("Tier 1 Categories:"):
-            tier1 = line.replace("Tier 1 Categories:", "").strip()
-        elif line.startswith("Tier 2 Categories:"):
-            tier2 = line.replace("Tier 2 Categories:", "").strip()
-        elif line.startswith("Reasoning:"):
-            reasoning = line.replace("Reasoning:", "").strip()
-        # Also check for the alternative format from codebook
-        elif line.startswith("Categories:"):
-            categories = line.replace("Categories:", "").strip().split()
-            if len(categories) >= 1:
-                if not tier1:  # Only set if not already set
-                    tier1 = categories[0]
-            if len(categories) >= 2:
-                if not tier2:  # Only set if not already set
-                    tier2 = " ".join(categories[1:])
-    
-    return {
-        "tier1_categories": tier1,
-        "tier2_categories": tier2,
-        "reasoning": reasoning,
-        "full_analysis": analysis
-    }
-
-def find_similar_cases(tier1, tier2, gap_text, other_content="", top_k=3):
-    """Find similar cases using embedding similarity and generate application strategies"""
-    # Load case embeddings
-    case_embeddings = get_case_embeddings()
-    
-    # Create query embedding
-    query_text = f"{tier1} {tier2} {gap_text} {other_content}"
-    response = client.embeddings.create(
-        input=query_text,
-        model="text-embedding-ada-002"
-    )
-    query_embedding = response.data[0].embedding
-    
-    # Calculate similarity with all cases
-    similarities = {}
-    for case_id, case_embedding in case_embeddings.items():
-        similarity = np.dot(query_embedding, case_embedding)
-        similarities[case_id] = similarity
-    
-    # Sort by similarity and return top k
-    sorted_cases = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-    top_case_ids = [case_id for case_id, _ in sorted_cases[:top_k]]
-    
-    # Get the full case data
-    similar_cases = []
-    for case_id in top_case_ids:
-        for case in case_studies:
-            if case["id"] == case_id:
-                case_with_similarity = case.copy()
-                case_with_similarity["similarity_score"] = similarities[case_id]
-                similar_cases.append(case_with_similarity)
-                break
-    
-    return similar_cases
-
-def generate_personalized_template(student_note, diagnosis, similar_case):
-    """Generate a personalized practice template based on the diagnosis and similar case"""
-    # Determine which template to use based on tier2 categories
-    template_content = ""
-    if "Assessing risks" in diagnosis.get("tier2_categories", ""):
-        template_content = load_template("Assessing risks")
-    else:
-        template_content = load_template("base")
-    
-    prompt = f"""You are creating a personalized learning plan for a student based on their regulation gap diagnosis.
-
-Student's Note:
-{student_note}
-
-Diagnosis:
-{diagnosis["full_analysis"]}
-
-Similar Case Study:
-ID: {similar_case["id"]}
-Gap: {similar_case["gap_text"]}
-Other Content: {similar_case["other_content"]}
-Tier 1 Categories: {similar_case["tier1_categories"]}
-Tier 2 Categories: {similar_case["tier2_categories"]}
-
-Use this template structure to create the personalized plan:
-{template_content}
-
-Fill in all the placeholders in the template with content specific to this student's situation and the similar case.
-Ensure you replace the [LLM will insert...] sections with actual content.
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # Much cheaper than gpt-4
-        messages=[{"role": "system", "content": prompt}],
-        temperature=0.7
-    )
-    
-    return response.choices[0].message.content
-
-# Add new function to generate "How This Applies To You" section
-def generate_application_strategies(student_note, diagnosis, similar_case):
-    """Generate personalized application strategies based on the diagnosis and similar case"""
-    prompt = f"""Create 3-4 concise, actionable strategies for applying lessons from a similar case to this student's situation.
-
-**Student's Situation:**
-{student_note}
-
-**Regulation Gap:** {diagnosis["tier1_categories"]} - {diagnosis["tier2_categories"]}
-
-**Similar Case:** {similar_case["gap_text"]}
-
-**Instructions:**
-- Keep each strategy to 1-2 sentences maximum
-- Focus on specific, actionable advice
-- Use bold headers for strategy names (2-4 words)
-- Make it directly applicable to their situation
-
-**Format exactly as:**
-**Strategy Name:** Brief, actionable description in 1-2 sentences.
-
-**Another Strategy:** Another brief, actionable description.
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "system", "content": prompt}],
-        temperature=0.7
-    )
-    
-    return response.choices[0].message.content
-
-# Add new function for generating suggested questions with better formatting
-def generate_suggested_questions(student_note, diagnosis, similar_case):
-    """Generate suggested questions for peer conversations based on regulation gap and similar case"""
-    prompt = f"""Generate 6-9 focused questions for peer conversations about this regulation gap.
-
-**Student Assessment:** {student_note}
-**Gap Type:** {diagnosis["tier1_categories"]} - {diagnosis["tier2_categories"]}
-**Similar Case:** {similar_case["gap_text"]}
-
-**Create questions in these categories:**
-
-1. **Understanding the Gap** (2-3 questions about how the gap manifests)
-2. **Learning from Experience** (2-3 questions about what worked/didn't work)  
-3. **Applying Solutions** (2-3 questions about implementing changes)
-
-**Guidelines:**
-- Keep questions concise and specific
-- Focus on regulation skills, not just content
-- Include one challenging/probing question per category
-- Make them conversation starters, not interviews
-- CRITICAL: Each bullet point must be on its own separate line
-- Never put multiple questions on the same line
-
-**Format exactly as:**
-
-**Understanding the Gap**
-
-• Question about manifestation?
-• Question about patterns?
-
-**Learning from Experience**
-
-• Question about what worked?
-• Question about challenges?
-
-**Applying Solutions**
-
-• Question about implementation?
-• Question about transfer?
-
-**FORMATTING RULES:**
-- Each bullet point on its own line
-- Include blank lines between sections
-- Start each bullet with • followed by a space
-- End each question with a question mark
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "system", "content": prompt}],
-        temperature=0.7
-    )
-    
-    # Get the raw response
-    raw_response = response.choices[0].message.content.strip()
-    
-    # Enhanced processing to ensure proper bullet point separation
-    lines = raw_response.split('\n')
-    formatted_lines = []
-    
-    for line in lines:
-        line = line.strip()
-        
-        # Skip completely empty lines during processing
-        if not line:
-            continue
-            
-        # Handle section headers (bold text without question marks)
-        if line.startswith('**') and line.endswith('**') and '?' not in line:
-            # Add spacing before section headers (except first one)
-            if formatted_lines:
-                formatted_lines.append("")
-            formatted_lines.append(line)
-            formatted_lines.append("")  # Always add space after header
-            
-        # Handle lines that contain bullet points
-        elif '•' in line:
-            # Check if multiple bullet points are crammed on one line
-            if line.count('•') > 1:
-                # Split by bullet points and process each separately
-                parts = line.split('•')
-                for i, part in enumerate(parts):
-                    if i == 0:  # First part before any bullet
-                        continue
-                    part = part.strip()
-                    if part:
-                        # Check if this part contains another question (look for '?')
-                        if '?' in part:
-                            # Further split by question marks if multiple questions
-                            questions = part.split('?')
-                            for j, question in enumerate(questions):
-                                question = question.strip()
-                                if question:  # Not empty
-                                    if j < len(questions) - 1:  # Not the last part
-                                        formatted_lines.append(f"• {question}?")
-                                    elif question != "":  # Last part, add only if not empty
-                                        formatted_lines.append(f"• {question}?")
-                        else:
-                            formatted_lines.append(f"• {part}")
-            else:
-                # Single bullet point on line
-                if line.startswith('•'):
-                    formatted_lines.append(line)
-                else:
-                    # Bullet point not at start, fix it
-                    bullet_part = line.split('•', 1)[1].strip()
-                    if bullet_part:
-                        formatted_lines.append(f"• {bullet_part}")
-                        
-        # Handle other bullet formats (-, *)
-        elif line.startswith(('-', '*')):
-            question_text = line.lstrip('-*').strip()
-            if question_text:
-                formatted_lines.append(f"• {question_text}")
-                
-        # Handle regular text (non-headers, non-bullets)
-        else:
-            formatted_lines.append(line)
-    
-    # Join with line breaks
-    result = '\n'.join(formatted_lines)
-    
-    # Clean up excessive spacing while maintaining section breaks
-    while '\n\n\n' in result:
-        result = result.replace('\n\n\n', '\n\n')
-    
-    # Final check: ensure no bullet points are on the same line
-    final_lines = result.split('\n')
-    truly_final_lines = []
-    
-    for line in final_lines:
-        if line.count('•') > 1:
-            # Still have multiple bullets on one line, fix it
-            parts = line.split('•')
-            for i, part in enumerate(parts):
-                if i == 0:
-                    continue
-                part = part.strip()
-                if part:
-                    truly_final_lines.append(f"• {part}")
-        else:
-            truly_final_lines.append(line)
-    
-    return '\n'.join(truly_final_lines).strip()
-
-# Add new function for audio transcription
-def transcribe_audio(audio_bytes):
-    """Transcribe audio using OpenAI's Whisper API"""
-    try:
-        # Convert audio bytes to a file-like object
-        audio_file = io.BytesIO(audio_bytes)
-        audio_file.name = "recording.wav"  # Whisper API needs a filename
-        
-        # Transcribe using Whisper
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            response_format="text"
-        )
-        
-        return transcript
-    except Exception as e:
-        st.error(f"Error transcribing audio: {str(e)}")
-        return None
-
-def transcribe_uploaded_audio(uploaded_file):
-    """Transcribe uploaded audio file using OpenAI's Whisper API"""
-    try:
-        # Read the uploaded file
-        audio_bytes = uploaded_file.read()
-        
-        # Create a file-like object
-        audio_file = io.BytesIO(audio_bytes)
-        audio_file.name = uploaded_file.name  # Use original filename
-        
-        # Transcribe using Whisper
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            response_format="text"
-        )
-        
-        return transcript
-    except Exception as e:
-        st.error(f"Error transcribing uploaded audio: {str(e)}")
-        return None
-
+# Transcription summarization function for SIG meetings
 def summarize_transcription(transcription, meeting_type="SIG Meeting"):
     """Summarize the transcription using GPT-4 to extract key coaching points based on meeting type"""
     
@@ -580,387 +121,104 @@ def summarize_transcription(transcription, meeting_type="SIG Meeting"):
     
     return response.choices[0].message.content
 
-def process_transcription_and_analyze():
-    """Combined function to transcribe, summarize, analyze, and navigate to results"""
-    with st.spinner("Transcribing and summarizing... (this may take ~2 minutes)"):
-        # Summarize the transcription
-        summary = summarize_transcription(st.session_state.transcription, st.session_state.meeting_type)
-        st.session_state.audio_summary = summary
-        
-        # Parse the summary to extract components
-        lines = summary.split('\n')
-        extracted_title = ""
-        extracted_gap = ""
-        extracted_context = ""
-        extracted_plan = ""
-        extracted_coach_suggestion = ""
-        
-        for line in lines:
-            if "Assessment Title:" in line or "**Assessment Title:**" in line:
-                extracted_title = line.split("Assessment Title:")[-1].replace("**", "").strip()
-            elif "Gap (What needs improvement):" in line or "**Gap (What needs improvement):**" in line:
-                extracted_gap = line.split("Gap (What needs improvement):")[-1].replace("**", "").strip()
-            elif "Context:" in line or "**Context:**" in line:
-                extracted_context = line.split("Context:")[-1].replace("**", "").strip()
-            elif "Plan & Reflect:" in line or "**Plan & Reflect:**" in line:
-                extracted_plan = line.split("Plan & Reflect:")[-1].replace("**", "").strip()
-            elif "Coach Practice Suggestion:" in line or "**Coach Practice Suggestion:**" in line:
-                extracted_coach_suggestion = line.split("Coach Practice Suggestion:")[-1].replace("**", "").strip()
-        
-        # Store extracted fields for editing
-        st.session_state.extracted_fields = {
-            'title': extracted_title if extracted_title else "Audio Assessment",
-            'gap': extracted_gap,
-            'context': extracted_context,
-            'plan': extracted_plan,
-            'coach_suggestion': extracted_coach_suggestion
-        }
-        
-        # Navigate to edit page
-        go_to_edit_page()
-        st.rerun()
+# Simple transcription function for demo
+def process_peer_audio_for_summary_action(transcription_text):
+    """Process peer conversation for Summary and Action Plan output"""
+    prompt = f"""You are analyzing a peer-to-peer learning conversation between students.
 
-def transcribe_and_summarize_recording(audio_data):
-    """Transcribe recorded audio and go to edit page"""
-    with st.spinner("Transcribing audio... (this may take ~2 minutes)"):
-        transcription = transcribe_audio(audio_data)
-        if transcription:
-            st.session_state.transcription = transcription
-            st.success("Audio transcribed successfully!")
-            # Automatically continue with summarization
-            process_transcription_and_analyze()
-        else:
-            st.error("Failed to transcribe audio. Please try again.")
+Please analyze this conversation and provide:
 
-def transcribe_and_summarize_upload(uploaded_file):
-    """Transcribe uploaded audio and go to edit page"""
-    with st.spinner("Transcribing uploaded audio... (this may take ~2 minutes)"):
-        transcription = transcribe_uploaded_audio(uploaded_file)
-        if transcription:
-            st.session_state.transcription = transcription
-            st.success("Audio transcribed successfully!")
-            # Automatically continue with summarization
-            process_transcription_and_analyze()
-        else:
-            st.error("Failed to transcribe audio. Please try again.")
+**Summary:**
+Write a 3-sentence summary of the main discussion points and insights shared.
 
-# Navigation functions
-def go_to_edit_page():
-    st.session_state.page = 'edit'
+**Action Plan:**
+Create a bullet-point action plan with specific next steps both students can take.
 
-def go_to_results_page():
-    st.session_state.page = 'results'
+Here's the conversation:
+{transcription_text}
 
-def go_to_template_page(case_index):
-    st.session_state.page = 'template'
-    st.session_state.selected_case = st.session_state.similar_cases[case_index]
+Format your response exactly as:
 
-def go_back_to_results():
-    st.session_state.page = 'results'
+**Summary:**
+[3 sentences summarizing the key discussion points and insights]
 
-def go_back_to_input():
-    st.session_state.page = 'input'
+**Action Plan:**
+• [Actionable step 1]
+• [Actionable step 2] 
+• [Actionable step 3]
+• [etc.]
+"""
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": prompt}],
+        temperature=0.3
+    )
+    
+    return response.choices[0].message.content
 
-def go_back_to_edit():
-    st.session_state.page = 'edit'
-
-# Custom CSS for better layout
+# CSS for better styling
 st.markdown("""
 <style>
-    .personalized-template {
-        background-color: #f5f5f5;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 20px;
+    .peer-info-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #0ea5e9;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 16px 0;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
     }
     
-    .application-section {
-        background: linear-gradient(135deg, #e8f7ee 0%, #f0fdf4 100%);
-        border-left: 4px solid #22c55e;
+    .checklist-card {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 16px 0;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+    }
+    
+    .result-card {
+        background: white;
+        border: 1px solid #e5e7eb;
         border-radius: 8px;
         padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .application-section h4 {
-        color: #15803d;
-        margin-top: 0;
-        margin-bottom: 15px;
-        font-weight: 600;
-    }
-    
-    .application-section ul {
-        margin: 0;
-        padding-left: 0;
-    }
-    
-    .application-section li {
-        margin-bottom: 12px;
-        line-height: 1.5;
-        list-style: none;
-    }
-    
-    .questions-section {
-        background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-        border-left: 4px solid #3b82f6;
-        border-radius: 8px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .questions-section h4 {
-        color: #1d4ed8;
-        margin-top: 0;
-        margin-bottom: 15px;
-        font-weight: 600;
-    }
-    
-    .questions-section ul {
-        margin: 0;
-        padding-left: 0;
-    }
-    
-    .questions-section li {
-        margin-bottom: 8px;
-        line-height: 1.4;
-        list-style: none;
-    }
-    
-    .case-button {
-        width: 100%;
-        text-align: left;
-        padding: 15px;
-        margin: 8px 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: white;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    
-    .case-button:hover {
-        border-color: #3b82f6;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-    }
-    
-    .case-expanded {
-        border-color: #3b82f6;
-        background-color: #f8fafc;
-    }
-    
-    .stButton button {
-        width: 100%;
-    }
-    
-    .stButton > button {
-        width: 100%;
-        text-align: left;
-        padding: 15px;
-        margin: 5px 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: white;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        white-space: normal;
-        height: auto;
-        min-height: 60px;
-    }
-    
-    .stButton > button:hover {
-        border-color: #3b82f6;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-    }
-    
-    /* Specific styling for primary buttons (transcribe button) */
-    .stButton > button[kind="primary"] {
-        background-color: #dc2626 !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-        font-weight: 600;
-    }
-    
-    .stButton > button[kind="primary"]:hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    
-    /* Alternative selector for primary buttons */
-    div[data-testid="stButton"] > button[kind="primary"] {
-        background-color: #dc2626 !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-        font-weight: 600;
-    }
-    
-    div[data-testid="stButton"] > button[kind="primary"]:hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    
-    /* Force primary button styling with more specific selectors */
-    button.stButton.stButton-primary {
-        background-color: #dc2626 !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-    }
-    
-    /* Even more specific targeting for Streamlit primary buttons */
-    button[data-testid="baseButton-primary"] {
-        background-color: #dc2626 !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-        font-weight: 600 !important;
-    }
-    
-    button[data-testid="baseButton-primary"]:hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    
-    /* Target by button text content for extra specificity */
-    button:contains("🎯 Transcribe"), 
-    button:contains("🔍 Analyze") {
-        background-color: #dc2626 !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-        font-weight: 600 !important;
-    }
-    
-    button:contains("🎯 Transcribe"):hover, 
-    button:contains("🔍 Analyze"):hover {
-        background-color: #b91c1c !important;
-        border-color: #b91c1c !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    
-    /* Override any Streamlit default primary button styling */
-    .stButton button[kind="primary"],
-    .stButton button[data-testid="baseButton-primary"],
-    button[kind="primary"],
-    button[data-testid="baseButton-primary"] {
-        background-color: #dc2626 !important;
-        background-image: none !important;
-        color: white !important;
-        border: 1px solid #dc2626 !important;
-        font-weight: 600 !important;
-    }
-    
-    .stButton button[kind="primary"]:hover,
-    .stButton button[data-testid="baseButton-primary"]:hover,
-    button[kind="primary"]:hover,
-    button[data-testid="baseButton-primary"]:hover {
-        background-color: #b91c1c !important;
-        background-image: none !important;
-        border-color: #b91c1c !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    
-    h3 {
-        margin-top: 20px;
-    }
-    
-    .nav-button {
-        margin-top: 20px;
-        margin-bottom: 20px;
-    }
-    
-    /* Specific styling for case buttons (non-primary) */
-    .stButton > button:not([kind="primary"]) {
-        width: 100% !important;
-        text-align: left !important;
-        padding: 15px 20px !important;
-        margin: 8px 0 !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        background: white !important;
-        color: #374151 !important;
-        font-weight: 400 !important;
-        font-size: 14px !important;
-        line-height: 1.4 !important;
-        height: auto !important;
-        min-height: 60px !important;
-        max-height: 80px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease !important;
-        box-sizing: border-box !important;
-    }
-    
-    .stButton > button:not([kind="primary"]):hover {
-        border-color: #3b82f6 !important;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1) !important;
-        background-color: #f8fafc !important;
-    }
-    
-    /* Ensure all case buttons have consistent spacing */
-    div[data-testid="stButton"]:has(button:not([kind="primary"])) {
-        margin: 4px 0 !important;
-        width: 100% !important;
-    }
-    
-    /* Force uniform button styling for case buttons */
-    button[key*="case_button_"] {
-        width: 100% !important;
-        text-align: left !important;
-        padding: 15px 20px !important;
-        margin: 8px 0 !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        background: white !important;
-        color: #374151 !important;
-        font-weight: 400 !important;
-        font-size: 14px !important;
-        line-height: 1.4 !important;
-        height: 60px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    
-    button[key*="case_button_"]:hover {
-        border-color: #3b82f6 !important;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1) !important;
-        background-color: #f8fafc !important;
+        margin: 10px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # MAIN UI LOGIC
-st.title("Novice to Expert Learning System")
+st.title("SPS V0.2 Prototype")
 
-
-# INPUT PAGE
-if st.session_state.page == 'input':
-    # Meeting type selector
-    st.subheader("Select Meeting Type")
-    meeting_type = st.radio(
-        "What type of audio are you uploading?",
-        ["SIG Meeting", "Peer Conversation"],
-        index=0 if st.session_state.meeting_type == "SIG Meeting" else 1,
-        help="SIG Meeting: Coach-Student discussion | Peer Conversation: Student-Student discussion"
-    )
-    st.session_state.meeting_type = meeting_type
+# HOME PAGE
+if st.session_state.page == 'home':
+    st.markdown("### Welcome to the LLM Enabled Regulation Coaching System")
+    st.markdown("Choose your session type to get started:")
     
-    # Audio upload input section - dynamic header based on meeting type
-    if meeting_type == "SIG Meeting":
-        st.header("Upload Your SIG Meeting Audio")
-        st.write("Upload your coaching assessment audio file (MP3 format). The system will transcribe and organize your coach-student interaction into structured fields for review.")
-    else:
-        st.header("Upload Your Peer Conversation Audio")
-        st.write("Upload your peer discussion audio file (MP3 format). The system will transcribe and organize your student-student conversation into structured fields for review.")
+    # Two main option cards
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🎯 SIG Meeting\n\nUpload and analyze coach-student discussion audio for structured assessment and feedback", key="sig_card", help="Coach-Student Assessment Session", use_container_width=True):
+            go_to_sig_meeting()
+            st.rerun()
+    
+    with col2:
+        if st.button("👥 Peer Meeting\n\nConnect with matched peers and analyze peer-to-peer learning conversations", key="peer_card", help="Peer-to-Peer Learning Session", use_container_width=True):
+            go_to_peer_meeting()
+            st.rerun()
+
+# SIG MEETING PAGE
+elif st.session_state.page == 'sig_meeting':
+    # Back to home button
+    if st.button("← Back to Home", key="back_to_home_from_sig"):
+        go_to_home()
+        st.rerun()
+    
+    st.header("Upload Your SIG Meeting Audio")
+    st.write("Upload your coaching assessment audio file (MP3 format). The system will transcribe and organize your coach-student interaction into structured fields for review.")
     
     # Show estimated processing time
     st.info("**Estimated processing time:** ~2 minutes for transcription and summarization")
@@ -972,18 +230,14 @@ if st.session_state.page == 'input':
     
     st.write("Experience the complete analysis workflow with real coaching conversation data")
     
-    if st.button("Run Sample Analysis", type="primary", use_container_width=True):
+    if st.button("Run Sample Analysis", type="primary", use_container_width=True, key="sample_sig"):
         # Use pre-transcribed sample data for instant demo
         sample_transcript = """So that led to our research, which is how do we scaffold a conversation, such as students ask better or deeper questions to their experienced peers, so that they can adjust their regulation gap? So just trying to come up with better question promptings so that we get better responses. I saw that. A couple things. First of all, I don't know if the bot's working, but did you get these reflection questions? I think there's a problem happening right now, but he gave us those. He sent it to us. OK, well, I can't see them, so. Oh, what it means is that if you do the reflections, yeah, they should show up here. Oh, oh, I see. OK, so I'm just letting you guys know. Well, I'm just letting you guys know. Yeah, it's not it's not. So I can't see your reflections on what you did. But we're going to keep working on. Keep working on articulating risks, so let's let's work on that a little bit. What? So right now, here's what I've heard so far. I heard we tested. Conversation went like, OK, but like maybe not so good or there's some parts like they could articulate certain things in the conversation. So we need to ask better questions. So we're going to ask better questions. That's roughly what I've heard. OK. If you're doing takeaways from user testing as you test it, it asks you to walk through. What is the new understanding that you've gained through testing with users? So often, you know, to talk about risk, it's really useful to talk about what you know, what you now know, and then to talk about what you still don't know. So it's nice to have both sides of that when you talk about a risk. So then, let's see, let's go through the sections of takeaways from user testing. Some of the first questions it asks are, what new understanding do you have? You know, there's the insights part, right? You guys know what I'm talking about when I'm saying all this, right? If you're no longer following, just pause me and then we'll put up and we'll look together. So it's like quick insights. And then it gets into like, well, did you learn anything new about the users? Like, what are their goals or what are their obstacles? And in particular, right, again, obstacles are not just what can't they do, but about why do they struggle to do the things that we want them to do or that they want to do, right? So it's understanding those why's. And then, you know, from there, there's things what you learn about your design and where it's working, where it's not. So I'm curious. So the first part about obstacles is, I haven't heard anything about why they struggle to do certain things, right? Like why are they bad at articulating their issues and the regulation gaps and what new things have you learned about that? Does that make sense? So that's something I'm curious about. And then on the solution side, well, you have some design arguments. Like there's some way you're trying to facilitate a conversation. So what did you learn about, right? And you had an argument about why they shouldn't get over the obstacles you thought were challenges. Do you need something? Well, not contagious. I've just been having a cough. She's been like that for two weeks. Sorry. So obstacles. And then what are the characteristics of your tool that's supposed to facilitate conversations along these lines? I'm assuming they're not working. This is still happening. But why aren't they working? Because you had an argument for why they should have worked and what obstacles they should have gotten over. So was there a new obstacle you didn't anticipate? Or is it that your argument about why it would get over the current obstacle didn't work? And so from there, I'm still walking you down takeaways from user testing. There's going to be something about your testing setup. So the question is about, is your testing setup helping you understand the things you want to understand? And some of it, the questions I just asked you about the obstacles, about how the design argument is working, it's possible. That your testing setup allowed you to understand those things or made it really hard to actually understand those things. So you saw that they were bad at articulating, but you don't really understand why. You saw that the argument didn't work, but you don't really understand which specific part of the argument broke down. And that might suggest that the testing setup has to be improved. So I'll just pause there. Does that all make sense? Any questions about any of that? I'm not asking you what to do about it yet, but does that all make sense? Okay, so good. So let's go back to here, right? And I know this is like a week ago, a week ago. But still, to help us follow along with your story, because this very quickly jumped into, they're bad at this, so let's just fix this. What were you able to learn about the things, about obstacles, about the design argument, about the testing setup? And are there anything there that are important for us to be thinking about as we tackle this question? Because now it just basically says, it didn't work, so we need to do better. It's not very helpful. I think one of the ways I think about this is, imagine you don't get the design, you just get to present the takeaways. Does that make sense? So you present the takeaways, let's say, to Lynn and Grace, and you tell them, well, students are bad at articulating, go make better questions. So they're sitting there and they're like, okay, great, we got to make better questions, but they're like, you want to tell us what would help us make better questions? Because without it, how are they going to do any better than they did on the last attempt? Okay, good, so let's try again, and if you don't have the answers to some of these questions, that's good too, but that might tell us something about the testing setup, right? So one way or another, we're going to learn something."""
         
-        st.session_state.meeting_type = "SIG Meeting"
-        st.session_state.transcription = sample_transcript
-        
-        # Process sample transcript instantly
+        # Process sample transcript with real analysis
         with st.spinner("Analyzing sample transcript..."):
             # Summarize the sample transcription
             summary = summarize_transcription(sample_transcript, "SIG Meeting")
-            st.session_state.audio_summary = summary
             
             # Parse the summary to extract components
             lines = summary.split('\n')
@@ -1005,18 +259,20 @@ if st.session_state.page == 'input':
                 elif "Coach Practice Suggestion:" in line or "**Coach Practice Suggestion:**" in line:
                     extracted_coach_suggestion = line.split("Coach Practice Suggestion:")[-1].replace("**", "").strip()
             
-            # Store extracted fields for editing
-            st.session_state.extracted_fields = {
-                'title': extracted_title if extracted_title else "Sample Assessment",
-                'gap': extracted_gap,
-                'context': extracted_context,
-                'plan': extracted_plan,
-                'coach_suggestion': extracted_coach_suggestion
-            }
+            st.success("Sample analysis complete!")
             
-            # Navigate to edit page
-            go_to_edit_page()
-            st.rerun()
+            # Display results
+            st.markdown("---")
+            st.subheader("Sample SIG Meeting Analysis Results")
+            
+            st.write(f"**Assessment Title:** {extracted_title if extracted_title else 'Sample Assessment'}")
+            st.write(f"**Gap (What needs improvement):** {extracted_gap}")
+            st.write(f"**Context:** {extracted_context}")
+            st.write(f"**Plan & Reflect:** {extracted_plan}")
+            st.write(f"**Coach Practice Suggestion:** {extracted_coach_suggestion}")
+            
+            with st.expander("View Full AI Analysis"):
+                st.markdown(summary)
     
     st.markdown("---")
     st.subheader("Upload Your Own Audio")
@@ -1024,6 +280,7 @@ if st.session_state.page == 'input':
     uploaded_file = st.file_uploader(
         "Choose an audio file",
         type=['mp3', 'wav', 'm4a', 'mp4', 'mpeg', 'mpga', 'webm'],
+        key="sig_upload",
         help="Upload an audio file containing your coaching assessment"
     )
     
@@ -1035,295 +292,212 @@ if st.session_state.page == 'input':
         st.write(f"**Size:** {uploaded_file.size / 1024 / 1024:.2f} MB")
         
         # Single button for complete workflow
-        if st.button("🎯 Transcribe & Summarize Audio", key="transcribe_analyze_upload", type="primary"):
-            transcribe_and_summarize_upload(uploaded_file)
-    
-    # Display transcription and summary if available (for user reference)
-    if 'transcription' in st.session_state:
-        with st.expander("View Raw Transcription"):
-            st.text_area("Raw Transcription:", st.session_state.transcription, height=150, disabled=True)
-    
-    if 'audio_summary' in st.session_state:
-        with st.expander("View AI Summary"):
-            st.markdown(st.session_state.audio_summary)
+        if st.button("🎯 Transcribe & Summarize Audio", key="transcribe_sig", type="primary"):
+            st.success("Would transcribe and process through existing SIG Meeting workflow.")
 
-# EDIT PAGE - New page for reviewing and editing transcribed content
-elif st.session_state.page == 'edit':
-    st.header("Review & Edit Assessment")
-    st.write("Review the AI-generated summary below and edit any fields as needed before proceeding to analysis.")
-    
-    # Back button
-    if st.button("← Back to Audio Input", key="back_to_input_from_edit"):
-        go_back_to_input()
+# PEER MEETING PAGE
+elif st.session_state.page == 'peer_meeting':
+    # Back to home button
+    if st.button("← Back to Home", key="back_to_home_from_peer"):
+        go_to_home()
         st.rerun()
     
-    # Show original transcription in expandable section
-    if 'transcription' in st.session_state:
-        with st.expander("View Original Transcription"):
-            st.text_area("Raw Transcription:", st.session_state.transcription, height=100, disabled=True)
+    st.header("Peer Meeting Session")
     
-    # Editable fields
-    st.subheader("Assessment Fields")
+    # Show matched peer information
+    if st.session_state.matched_peer:
+        st.subheader("Your Matched Peer")
+        peer = st.session_state.matched_peer
+        st.info(f"👤 **{peer['name']}**\n\n**Regulation Gap:** {peer['regulation_gap']}\n\n**Match Score:** {peer['similarity_score']:.0%}\n\n**Shared Challenges:** {', '.join(peer['shared_challenges'])}")
     
-    project_title = st.text_input(
-        "Assessment Title:", 
-        value=st.session_state.extracted_fields.get('title', ''),
-        help="Brief title summarizing the main issue"
-    )
-    
-    gap_text = st.text_area(
-        "Gap (What needs improvement):", 
-        value=st.session_state.extracted_fields.get('gap', ''),
-        height=100,
-        help="The main regulation gap or challenge identified"
-    )
-    
-    context = st.text_area(
-        "Context:", 
-        value=st.session_state.extracted_fields.get('context', ''),
-        height=100,
-        help="The situation or background where this gap was observed"
-    )
-    
-    plan_reflect = st.text_area(
-        "Plan & Reflect:", 
-        value=st.session_state.extracted_fields.get('plan', ''),
-        height=100,
-        help="Any plans mentioned or reflection questions suggested"
-    )
-    
-    coach_suggestion = st.text_area(
-        "Coach Practice Suggestion:", 
-        value=st.session_state.extracted_fields.get('coach_suggestion', ''),
-        height=100,
-        help="Specific practice exercises or activities recommended"
-    )
-    
-    # Update session state with edited values
-    st.session_state.extracted_fields['title'] = project_title
-    st.session_state.extracted_fields['gap'] = gap_text
-    st.session_state.extracted_fields['context'] = context
-    st.session_state.extracted_fields['plan'] = plan_reflect
-    st.session_state.extracted_fields['coach_suggestion'] = coach_suggestion
-    
-    # Analyze button
-    if st.button("🔍 Analyze Regulation Gap", key="analyze_edited", type="primary"):
-        with st.spinner("Analyzing regulation gap..."):
-            # Combine all fields into student_note
-            student_note = f"Title: {project_title}\nGap: {gap_text}\nContext: {context}\nPlan: {plan_reflect}\nCoach Suggestion: {coach_suggestion}"
-            st.session_state.student_note = student_note
-            st.session_state.project_title = project_title
-            
-            # Get diagnosis
-            st.session_state.diagnosis = diagnose_regulation_gap(student_note)
-            
-            # Find similar cases
-            st.session_state.similar_cases = find_similar_cases(
-                st.session_state.diagnosis['tier1_categories'], 
-                st.session_state.diagnosis['tier2_categories'], 
-                gap_text, 
-                context + " " + plan_reflect + " " + coach_suggestion
-            )
-            
-            # Navigate to results page
-            go_to_results_page()
-            st.rerun()
+    # Checklist Questions Card
+    st.subheader("Discussion Checklist")
+    st.warning("""
+📋 **Peer Conversation Guidelines**
 
-# RESULTS PAGE
-elif st.session_state.page == 'results':
-    # Display back button
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if st.button("← Back to Edit", key="back_to_edit"):
-            go_back_to_edit()
-            st.rerun()
-    with col2:
-        if st.button("🎵 New Audio Input", key="new_audio_input"):
-            go_back_to_input()
-            st.rerun()
+Use these questions to guide your peer discussion:
+
+• How did you encounter this regulation gap?
+• What strategies have you tried to address it?
+• What worked and what didn't work?
+• What specific examples can you share?
+• How can we support each other in improvement?
+
+*Record your conversation and upload it below for analysis.*
+    """)
     
-    # Show assessment title at the top
-    st.header(f"Assessment: {st.session_state.project_title}")
+    # Sample demo section
+    st.markdown("---")
+    st.subheader("See a Sample Run")
+    st.write("This is a sample peer-to-peer conversation between students discussing regulation gaps and learning strategies. Experience how the system analyzes peer discussions and generates actionable insights.")
     
-    # Display coach feedback text (from extracted fields)
-    if st.session_state.extracted_fields.get('coach_suggestion'):
-        st.subheader("Coach Feedback")
-        st.info(f"💬 **Coach's Practice Suggestion:** {st.session_state.extracted_fields['coach_suggestion']}")
+    st.write("Experience the complete peer analysis workflow with real conversation data")
     
-    # Display diagnosis
-    st.subheader("Regulation Gap Diagnosis")
-    st.write(f"**Tier 1 Categories:** {st.session_state.diagnosis['tier1_categories']}")
-    st.write(f"**Tier 2 Categories:** {st.session_state.diagnosis['tier2_categories']}")
-    st.write(f"**Reasoning:** {st.session_state.diagnosis['reasoning']}")
-    
-    # Display similar cases with controlled expansion
-    st.subheader("Similar Cases")
-    for i, case in enumerate(st.session_state.similar_cases):
-        # Check if this case should be expanded
-        is_expanded = st.session_state.expanded_case == i
+    if st.button("Run Sample Analysis", type="primary", use_container_width=True, key="sample_peer"):
+        # Use pre-transcribed sample peer conversation for instant demo
+        sample_peer_transcript = """
+Student A: So I've been really struggling with understanding why our user testing results don't seem to match what we expected from our design arguments. Like, we design something thinking it will solve a specific problem, but then users don't use it the way we anticipated.
+
+Student B: Oh yeah, I've had the same issue! It's so frustrating because you spend all this time crafting what you think is a solid argument for why something should work, and then reality hits and users behave completely differently.
+
+Student A: Exactly! And I feel like I'm not good at articulating what went wrong or why. It's like I know there's something to learn from it, but I can't put my finger on what specifically broke down in my reasoning.
+
+Student B: I think part of the issue is that we're not asking the right questions during testing. Like, we ask "did this work for you?" but we don't dig into the why behind their behavior. We need to understand their mental models.
+
+Student A: That's a really good point. Maybe we need to focus more on understanding their thought processes and how they approach the task, not just whether they can complete it successfully.
+
+Student B: Yeah, and also being more systematic about what we're trying to learn. I feel like sometimes we go into testing without clear hypotheses about what might go wrong with our design arguments.
+
+Student A: Right! So maybe we should spend more time upfront thinking about what assumptions we're making in our design arguments and how we can test those assumptions specifically.
+
+Student B: Definitely. And then we need to get better at synthesizing what we learn and turning it into actionable insights for the next iteration. Like, not just "users struggled" but "users struggled because they expected X but we designed for Y."
+
+Student A: That would help so much with articulating the regulation gaps too. Instead of just saying "I'm bad at user testing," I could say "I struggle with identifying and testing the assumptions underlying my design arguments."
+
+Student B: Exactly! And we could probably develop some kind of framework for ourselves - like a checklist of assumption categories to consider before testing, and then specific questions to ask during testing to validate or invalidate those assumptions.
+        """
         
-        # Create the expander with controlled state
-        expander_key = f"case_expander_{i}"
-        
-        # Use columns to create a clickable header that controls expansion
-        header_text = f"Case {i+1}: {case['gap_text'][:100]}..."
-        
-        if st.button(header_text, key=f"case_button_{i}", help="Click to expand/collapse"):
-            # Toggle the expanded case
-            if st.session_state.expanded_case == i:
-                st.session_state.expanded_case = None  # Close if already open
-            else:
-                st.session_state.expanded_case = i  # Open this case, close others
-            st.rerun()
-        
-        # Show content only if this case is expanded
-        if is_expanded:
+        # Process sample transcript with real analysis
+        with st.spinner("Analyzing sample peer conversation..."):
+            # Process for Summary and Action Plan
+            result = process_peer_audio_for_summary_action(sample_peer_transcript)
+            
+            st.success("Sample peer analysis complete!")
+            
+            # Display results in two separate boxes
             st.markdown("---")
+            st.subheader("Sample Peer Analysis Results")
             
-            # Case details
-            st.write(f"**Project:** {case.get('project', 'N/A')}")
-            st.write(f"**Gap:** {case.get('gap_text', 'N/A')}")
-            st.write(f"**Tier 1 Categories:** {case.get('tier1_categories', 'N/A')}")
-            st.write(f"**Tier 2 Categories:** {case.get('tier2_categories', 'N/A')}")
-            st.write(f"**Other Content:** {case.get('other_content', 'N/A')}")
-            st.write(f"**Similarity Score:** {case.get('similarity_score', 0):.4f}")
+            # Parse the response to separate Summary and Action Plan
+            lines = result.split('\n')
+            summary_section = []
+            action_section = []
+            current_section = None
             
-            # Add "How This Applies To You" section
-            application_strategies = generate_application_strategies(
-                st.session_state.student_note, 
-                st.session_state.diagnosis, 
-                case
-            )
-            st.subheader("How This Applies To You")
-            st.markdown(f'<div class="application-section">{application_strategies}</div>', unsafe_allow_html=True)
+            for line in lines:
+                line = line.strip()
+                if '**Summary:**' in line:
+                    current_section = 'summary'
+                    continue
+                elif '**Action Plan:**' in line:
+                    current_section = 'action'
+                    continue
+                elif line:  # Skip empty lines
+                    if current_section == 'summary':
+                        summary_section.append(line)
+                    elif current_section == 'action':
+                        action_section.append(line)
             
-            # Add suggested questions section
-            st.subheader("Suggested Discussion Questions")
-            st.write("Use these questions to guide peer conversations about this regulation gap:")
+            # Display Summary and Action Plan boxes
+            col1, col2 = st.columns(2)
             
-            # Generate questions if not already cached for this case
-            if f'questions_{i}' not in st.session_state:
-                with st.spinner("Generating discussion questions..."):
-                    st.session_state[f'questions_{i}'] = generate_suggested_questions(
-                        st.session_state.student_note,
-                        st.session_state.diagnosis,
-                        case
-                    )
+            with col1:
+                st.markdown("""
+                <div class="result-card">
+                    <h4>📝 Summary</h4>
+                    <p>{}</p>
+                </div>
+                """.format(' '.join(summary_section)), unsafe_allow_html=True)
             
-            # Display the questions with improved formatting
-            questions_content = st.session_state[f"questions_{i}"]
-            st.markdown(f'<div class="questions-section">{questions_content}</div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown("""
+                <div class="result-card">
+                    <h4>🎯 Action Plan</h4>
+                    <div>{}</div>
+                </div>
+                """.format('<br>'.join(action_section)), unsafe_allow_html=True)
             
-            st.markdown("---")
-
-# TEMPLATE PAGE
-elif st.session_state.page == 'template':
-    # Display back button
-    if st.button("← Back to Results", key="back_to_results"):
-        go_back_to_results()
-        st.rerun()
+            with st.expander("View Full AI Analysis"):
+                st.markdown(result)
     
-    # Get actual project name from the selected case
-    project_name = st.session_state.selected_case.get('project', st.session_state.project_title)
+    st.markdown("---")
+    st.subheader("Upload Your Own Audio")
     
-    # Show case information as header
-    st.header(f"Project: {project_name}")
-    st.subheader(f"Personalized Template Based on Similar Case")
-    st.write(f"**Regulation Gap:** {st.session_state.selected_case['gap_text']}")
+    # Audio upload section
+    st.write("Upload your peer discussion audio file (MP3 format). The system will transcribe and organize your student-student conversation into structured fields for review.")
     
-    # Generate template if needed
-    if st.session_state.current_template is None:
-        with st.spinner("Generating personalized practice template..."):
-            st.session_state.current_template = generate_personalized_template(
-                st.session_state.student_note, 
-                st.session_state.diagnosis, 
-                st.session_state.selected_case
-            )
+    st.info("**Estimated processing time:** ~2 minutes for transcription and summarization")
     
-    # Option to download template at the top with correct project name
-    st.download_button(
-        "Download Complete Template", 
-        st.session_state.current_template, 
-        file_name=f"practice_template_{project_name.replace(' ', '_')}.md",
-        mime="text/markdown"
+    uploaded_file = st.file_uploader(
+        "Choose an audio file",
+        type=['mp3', 'wav', 'm4a', 'mp4', 'mpeg', 'mpga', 'webm'],
+        key="peer_audio_upload",
+        help="Upload an audio file containing your peer conversation"
     )
     
-    # Parse template into sections
-    template_sections = []
-    current_section = {"title": "Introduction", "content": ""}
-    
-    for line in st.session_state.current_template.split('\n'):
-        if line.startswith('## '):
-            # Save the previous section
-            if current_section["content"]:
-                template_sections.append(current_section)
-            
-            # Start a new section
-            section_title = line[3:].strip()
-            current_section = {"title": section_title, "content": line + "\n"}
-        else:
-            # Add to current section
-            current_section["content"] += line + "\n"
-    
-    # Add the last section
-    if current_section["content"]:
-        template_sections.append(current_section)
-    
-    # Create a mapping of section titles to input labels
-    section_input_mapping = {
-        "Understanding Your Regulation Gap": "Your understanding of the gap",
-        "How This Relates to a Similar Case": "Your thoughts on the similar case",
-        "Understanding Risk in Design Research": "Your understanding of risk",
-        "Reflection on Recent Learning": "Your recent learning reflections",
-        "Identifying Gaps in Your Understanding": "Your identified gaps",
-        "Prioritizing Risks for Your Next Sprint": "Your priority risks",
-        "Practice Exercises for This Week": "Your exercise results",
-        "Reflection Prompts": "Your reflections"
-    }
-    
-    # Create a container for save button success message
-    save_container = st.empty()
-    
-    # Display each section with its input box
-    responses = {}
-    
-    for i, section in enumerate(template_sections):
-        st.markdown("---")
-        cols = st.columns([3, 2])
+    if uploaded_file is not None:
+        st.audio(uploaded_file)
         
-        with cols[0]:
-            st.markdown(f'<div class="personalized-template">{section["content"]}</div>', unsafe_allow_html=True)
+        # Display file info
+        st.write(f"**File:** {uploaded_file.name}")
+        st.write(f"**Size:** {uploaded_file.size / 1024 / 1024:.2f} MB")
         
-        with cols[1]:
-            # Get appropriate label for the input box
-            input_label = section_input_mapping.get(section["title"], f"Your response to {section['title']}")
-            
-            # Get a unique key for this text area
-            section_key = f"input_{i}_{section['title'].replace(' ', '_')}"
-            
-            # Create text area with appropriate height based on content length
-            content_length = len(section["content"])
-            height = min(max(100, content_length // 5), 300)  # Adjust height based on content
-            
-            responses[section["title"]] = st.text_area(input_label, key=section_key, height=height)
-    
-    # Save button at the bottom
-    if st.button("Save All Responses", key="save_all_responses"):
-        # Here you would save responses to a database in a real application
-        save_container.success("All responses saved successfully!")
+        # Single button for complete workflow
+        if st.button("🎯 Transcribe & Analyze Peer Conversation", key="transcribe_analyze_peer", type="primary"):
+            with st.spinner("Processing peer conversation..."):
+                # Mock transcription for demo
+                mock_transcription = """
+Student A: So I've been really struggling with understanding why our user testing results don't seem to match what we expected from our design arguments.
 
-# Sidebar content
-st.sidebar.title("About")
-st.sidebar.info(
-    "This tool helps diagnose student regulation gaps and provides "
-    "personalized practice templates based on similar cases."
-)
-st.sidebar.title("Research")
-st.sidebar.info("""
-This system is based on peer-to-peer coaching research that achieved 87.5% precision in diagnosing student regulation gaps.
+Student B: Oh yeah, I've had the same issue! Like, we design something thinking it will solve a specific problem, but then users don't use it the way we anticipated.
 
-The system diagnoses learning challenges using AI analysis of coaching conversations, matches students with similar regulation gaps for peer learning, and facilitates conversations with research-backed discussion guides.
+Student A: Exactly! And I feel like I'm not good at articulating what went wrong or why. It's frustrating because I know there's something to learn from it, but I can't put my finger on it.
 
-Our approach advances AI-driven coaching methodologies by combining semantic matching with structured knowledge categorization across three key domains: Cognitive Skills, Metacognitive Skills, and Emotional Regulation.
+Student B: I think part of the issue is that we're not asking the right questions during testing. Like, we ask "did this work for you?" but we don't dig into the why behind their behavior.
 
-""") 
+Student A: That's a good point. Maybe we need to focus more on understanding their mental models and how they approach the task, not just whether they can complete it.
+
+Student B: Yeah, and also being more systematic about what we're trying to learn. I feel like sometimes we go into testing without clear hypotheses about what might go wrong.
+
+Student A: Right! So maybe we should spend more time upfront thinking about what assumptions we're making and how we can test those specifically.
+
+Student B: Definitely. And then we need to get better at synthesizing what we learn and turning it into actionable insights for the next iteration.
+                """
+                
+                # Process for Summary and Action Plan
+                result = process_peer_audio_for_summary_action(mock_transcription)
+                
+                st.success("Peer conversation analysis complete!")
+                
+                # Display results in two separate boxes
+                st.markdown("---")
+                st.subheader("Analysis Results")
+                
+                # Parse the response to separate Summary and Action Plan
+                lines = result.split('\n')
+                summary_section = []
+                action_section = []
+                current_section = None
+                
+                for line in lines:
+                    line = line.strip()
+                    if '**Summary:**' in line:
+                        current_section = 'summary'
+                        continue
+                    elif '**Action Plan:**' in line:
+                        current_section = 'action'
+                        continue
+                    elif line:  # Skip empty lines
+                        if current_section == 'summary':
+                            summary_section.append(line)
+                        elif current_section == 'action':
+                            action_section.append(line)
+                
+                # Display Summary box
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("""
+                    <div class="result-card">
+                        <h4>📝 Summary</h4>
+                        <p>{}</p>
+                    </div>
+                    """.format(' '.join(summary_section)), unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown("""
+                    <div class="result-card">
+                        <h4>🎯 Action Plan</h4>
+                        <div>{}</div>
+                    </div>
+                    """.format('<br>'.join(action_section)), unsafe_allow_html=True)
