@@ -121,6 +121,35 @@ def summarize_transcription(transcription, meeting_type="SIG Meeting"):
     
     return response.choices[0].message.content
 
+# Meeting summary function for detailed analysis
+def generate_meeting_summary(transcription_text):
+    """Generate a comprehensive meeting summary for the expandable analysis section"""
+    prompt = f"""You are analyzing a peer-to-peer conversation between students discussing their regulation practices and weekly progress.
+
+Please provide a comprehensive summary of this peer meeting conversation. Focus on:
+
+1. The main topics and themes discussed
+2. Each student's challenges and progress with regulation practices
+3. Specific strategies and techniques mentioned
+4. Coach feedback that was shared and discussed
+5. Key insights or breakthroughs mentioned
+6. Plans and commitments made for future improvement
+
+Write this as a flowing narrative summary that captures the essence of the conversation and the collaborative learning that took place.
+
+Here's the conversation:
+{transcription_text}
+
+Provide a detailed but concise summary that would help someone understand what was accomplished in this peer meeting."""
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": prompt}],
+        temperature=0.3
+    )
+    
+    return response.choices[0].message.content
+
 # Simple transcription function for demo
 def process_peer_audio_for_summary_action(transcription_text):
     """Process peer conversation for Summary and Action Plan output focused on regulation practices"""
@@ -197,7 +226,7 @@ st.title("SPS V0.2 Prototype")
 
 # HOME PAGE
 if st.session_state.page == 'home':
-    st.markdown("### Welcome to the LLM Enabled Regulation Coaching System")
+    st.markdown("### LLM Enabled Regulation Coaching System")
     st.markdown("Choose your session type to get started:")
     
     # Two main option cards
@@ -319,7 +348,7 @@ Use these questions to guide your peer discussion:
 
 **About Your Work:**
 • Describe your deliverable
-• Describe how you worked that week leading up to your SIG meeting
+• Describe how you worked that week leading up to your SIG meeting  
 • What do you think you did well in terms of regulation practices?
 • How might that have contributed to your deliverable?
 • Why did you work that way and apply certain strategies?
@@ -378,6 +407,9 @@ Student A: Yeah, I think for me, I want to keep using that timer method and also
             # Process for Summary and Action Plan
             result = process_peer_audio_for_summary_action(sample_peer_transcript)
             
+            # Generate detailed meeting summary for expandable section
+            meeting_summary = generate_meeting_summary(sample_peer_transcript)
+            
             st.success("Sample peer analysis complete!")
             
             # Display results in two separate boxes
@@ -419,8 +451,8 @@ Student A: Yeah, I think for me, I want to keep using that timer method and also
             </div>
             """.format('<br>'.join(action_section)), unsafe_allow_html=True)
             
-            with st.expander("View Full AI Analysis"):
-                st.markdown(result)
+            with st.expander("View Full Meeting Summary"):
+                st.markdown(meeting_summary)
     
     st.markdown("---")
     st.subheader("Upload Your Own Audio")
@@ -471,6 +503,9 @@ Student A: Good plan. I want to continue with the "good enough" draft strategy a
                 # Process for Summary and Action Plan
                 result = process_peer_audio_for_summary_action(mock_transcription)
                 
+                # Generate detailed meeting summary for expandable section
+                meeting_summary = generate_meeting_summary(mock_transcription)
+                
                 st.success("Peer conversation analysis complete!")
                 
                 # Display results in two separate boxes
@@ -511,3 +546,6 @@ Student A: Good plan. I want to continue with the "good enough" draft strategy a
                     <div>{}</div>
                 </div>
                 """.format('<br>'.join(action_section)), unsafe_allow_html=True)
+                
+                with st.expander("View Full Meeting Summary"):
+                    st.markdown(meeting_summary)
