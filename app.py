@@ -307,11 +307,8 @@ elif st.session_state.page == 'peer_meeting':
     
     st.header("Peer Meeting Session")
     
-    # Show matched peer information
-    if st.session_state.matched_peer:
-        st.subheader("Your Matched Peer")
-        peer = st.session_state.matched_peer
-        st.info(f"👤 **{peer['name']}**\n\n**Regulation Gap:** {peer['regulation_gap']}\n\n**Match Score:** {peer['similarity_score']:.0%}\n\n**Shared Challenges:** {', '.join(peer['shared_challenges'])}")
+    # Show simple instruction
+    st.info("👥 **Meet with your SIG mates.**")
     
     # Checklist Questions Card
     st.subheader("Discussion Checklist")
