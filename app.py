@@ -123,16 +123,19 @@ def summarize_transcription(transcription, meeting_type="SIG Meeting"):
 
 # Simple transcription function for demo
 def process_peer_audio_for_summary_action(transcription_text):
-    """Process peer conversation for Summary and Action Plan output"""
-    prompt = f"""You are analyzing a peer-to-peer learning conversation between students.
+    """Process peer conversation for Summary and Action Plan output focused on regulation practices"""
+    prompt = f"""You are analyzing a peer-to-peer conversation between students discussing their regulation practices and SIG meeting feedback.
 
-Please analyze this conversation and provide:
+Regulation skills refer to the ability to manage beliefs, emotions, and thoughts in a way that is effective for different situations and help you to achieve your long term goals.
 
-**Summary:**
-Write a 3-sentence summary of the main discussion points and insights shared.
+Based on the meeting transcript/recording provided, do the following:
 
-**Action Plan:**
-Create a bullet-point action plan with specific next steps both students can take.
+1) Write a 2-sentence summary of what was discussed. The purpose of the summary is to help the student see their progress and practices for the week.
+
+2) Create an action plan for the following week using bullet points. For the action plan, it should include:
+   - What the student did well in terms of regulation practices that they should keep building on
+   - How to incorporate feedback received from their meeting with the coach
+   - How to build upon their work they did well for the next week
 
 Here's the conversation:
 {transcription_text}
@@ -140,13 +143,13 @@ Here's the conversation:
 Format your response exactly as:
 
 **Summary:**
-[3 sentences summarizing the key discussion points and insights]
+[2 sentences about what was discussed and their progress/practices]
 
 **Action Plan:**
-• [Actionable step 1]
-• [Actionable step 2] 
-• [Actionable step 3]
-• [etc.]
+• [What they did well in regulation practices to build on]
+• [How to incorporate coach feedback]
+• [How to build on this week's progress]
+• [Additional specific regulation practice steps]
 """
     
     response = client.chat.completions.create(
@@ -317,11 +320,25 @@ elif st.session_state.page == 'peer_meeting':
 
 Use these questions to guide your peer discussion:
 
-• How did you encounter this regulation gap?
-• What strategies have you tried to address it?
-• What worked and what didn't work?
-• What specific examples can you share?
-• How can we support each other in improvement?
+**About Your Work:**
+• Describe your deliverable
+• Describe how you worked that week leading up to your SIG meeting
+• What do you think you did well in terms of regulation practices?
+• How might that have contributed to your deliverable?
+• Why did you work that way and apply certain strategies?
+• Did you do anything differently compared to previous weeks that made you more effective?
+
+**About Feedback:**
+• Describe the feedback you received during your SIG meeting
+• How do you think the feedback relates to how you practiced that week?
+• Did you receive any positive feedback from the coach yet? What did that look like?
+• Overall, how do you feel about your week's progress after the SIG meeting compared to before the SIG meeting?
+
+**About Next Steps:**
+• Describe what your next steps will be for the following week
+• What is one thing that you did well this week relating to regulation practices that you want to incorporate into next week?
+• How will you also incorporate the feedback from the SIG meeting?
+• How (if possible) can you build on this week's progress for next week?
 
 *Record your conversation and upload it below for analysis.*
     """)
@@ -336,25 +353,27 @@ Use these questions to guide your peer discussion:
     if st.button("Run Sample Analysis", type="primary", use_container_width=True, key="sample_peer"):
         # Use pre-transcribed sample peer conversation for instant demo
         sample_peer_transcript = """
-Student A: So I've been really struggling with understanding why our user testing results don't seem to match what we expected from our design arguments. Like, we design something thinking it will solve a specific problem, but then users don't use it the way we anticipated.
+Student A: So this week for my deliverable, I had to present our user research findings to the team. I've been working on managing my perfectionism because I usually get paralyzed by wanting everything to be perfect before I share it.
 
-Student B: Oh yeah, I've had the same issue! It's so frustrating because you spend all this time crafting what you think is a solid argument for why something should work, and then reality hits and users behave completely differently.
+Student B: Oh wow, how did that go? I remember you mentioning that was something you wanted to work on after your SIG meeting.
 
-Student A: Exactly! And I feel like I'm not good at articulating what went wrong or why. It's like I know there's something to learn from it, but I can't put my finger on what specifically broke down in my reasoning.
+Student A: Actually, it went better than expected! My coach had told me to try the "good enough to get feedback" approach this week. So instead of spending days perfecting the presentation, I set a timer for 3 hours to create a rough version and then shared it for input.
 
-Student B: I think part of the issue is that we're not asking the right questions during testing. Like, we ask "did this work for you?" but we don't dig into the why behind their behavior. We need to understand their mental models.
+Student B: That's awesome! I've been dealing with similar regulation challenges around procrastination. After my SIG meeting, my coach pointed out that I wait until the last minute because I'm afraid of not meeting my own high standards.
 
-Student A: That's a really good point. Maybe we need to focus more on understanding their thought processes and how they approach the task, not just whether they can complete it successfully.
+Student A: Yes! That's exactly it. What did you do differently this week?
 
-Student B: Yeah, and also being more systematic about what we're trying to learn. I feel like sometimes we go into testing without clear hypotheses about what might go wrong with our design arguments.
+Student B: I tried breaking my project into smaller chunks and celebrating small wins. Instead of thinking "I need to finish this entire prototype," I told myself "today I just need to complete the wireframes." It helped manage that overwhelming feeling.
 
-Student A: Right! So maybe we should spend more time upfront thinking about what assumptions we're making in our design arguments and how we can test those assumptions specifically.
+Student A: That's smart. My coach also suggested I notice when I'm getting stuck in perfectionist thinking. This week I caught myself three times starting to over-research instead of just starting to write. Each time I reminded myself that feedback is more valuable than perfection.
 
-Student B: Definitely. And then we need to get better at synthesizing what we learn and turning it into actionable insights for the next iteration. Like, not just "users struggled" but "users struggled because they expected X but we designed for Y."
+Student B: How did your team respond when you shared the rough version?
 
-Student A: That would help so much with articulating the regulation gaps too. Instead of just saying "I'm bad at user testing," I could say "I struggle with identifying and testing the assumptions underlying my design arguments."
+Student A: They actually loved the collaborative approach! They had suggestions that made the final version way better than if I had tried to perfect it alone. My coach was right - the feedback was more valuable than my perfectionism.
 
-Student B: Exactly! And we could probably develop some kind of framework for ourselves - like a checklist of assumption categories to consider before testing, and then specific questions to ask during testing to validate or invalidate those assumptions.
+Student B: That's amazing progress. For next week, I want to keep practicing that small-wins approach. But I also got feedback that I need to communicate my progress better to my team instead of just working in isolation.
+
+Student A: Yeah, I think for me, I want to keep using that timer method and also practice sharing work-in-progress more often. It felt scary but it worked so much better.
         """
         
         # Process sample transcript with real analysis
@@ -388,24 +407,20 @@ Student B: Exactly! And we could probably develop some kind of framework for our
                     elif current_section == 'action':
                         action_section.append(line)
             
-            # Display Summary and Action Plan boxes
-            col1, col2 = st.columns(2)
+            # Display Summary and Action Plan as stacked sections
+            st.markdown("""
+            <div class="result-card">
+                <h4>📝 Summary</h4>
+                <div>{}</div>
+            </div>
+            """.format('<br>'.join(summary_section)), unsafe_allow_html=True)
             
-            with col1:
-                st.markdown("""
-                <div class="result-card">
-                    <h4>📝 Summary</h4>
-                    <p>{}</p>
-                </div>
-                """.format(' '.join(summary_section)), unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("""
-                <div class="result-card">
-                    <h4>🎯 Action Plan</h4>
-                    <div>{}</div>
-                </div>
-                """.format('<br>'.join(action_section)), unsafe_allow_html=True)
+            st.markdown("""
+            <div class="result-card">
+                <h4>🎯 Action Plan</h4>
+                <div>{}</div>
+            </div>
+            """.format('<br>'.join(action_section)), unsafe_allow_html=True)
             
             with st.expander("View Full AI Analysis"):
                 st.markdown(result)
@@ -435,23 +450,25 @@ Student B: Exactly! And we could probably develop some kind of framework for our
         # Single button for complete workflow
         if st.button("🎯 Transcribe & Analyze Peer Conversation", key="transcribe_analyze_peer", type="primary"):
             with st.spinner("Processing peer conversation..."):
-                # Mock transcription for demo
+                # Mock transcription for demo - regulation practices focused
                 mock_transcription = """
-Student A: So I've been really struggling with understanding why our user testing results don't seem to match what we expected from our design arguments.
+Student A: This week I worked on my design research project. I think I did well with managing my perfectionism by setting daily deadlines instead of trying to make everything perfect. My coach suggested this strategy last week.
 
-Student B: Oh yeah, I've had the same issue! Like, we design something thinking it will solve a specific problem, but then users don't use it the way we anticipated.
+Student B: That's really good! I can relate to that struggle. This week I focused on my presentation skills, and I practiced managing my anxiety by doing breathing exercises before practice sessions. My coach gave me feedback about how my nervousness was affecting my message clarity.
 
-Student A: Exactly! And I feel like I'm not good at articulating what went wrong or why. It's frustrating because I know there's something to learn from it, but I can't put my finger on it.
+Student A: Did the breathing exercises help? I'm curious because I get really anxious about presenting too.
 
-Student B: I think part of the issue is that we're not asking the right questions during testing. Like, we ask "did this work for you?" but we don't dig into the why behind their behavior.
+Student B: Yes, definitely! When I managed my anxiety better, I could focus on organizing my thoughts clearly. My coach was right that my rushing through slides was actually making things worse, not better.
 
-Student A: That's a good point. Maybe we need to focus more on understanding their mental models and how they approach the task, not just whether they can complete it.
+Student A: That makes sense. My coach also pointed out that my perfectionism was actually slowing me down rather than improving quality. So this week I practiced her suggestion about setting "good enough" standards for drafts.
 
-Student B: Yeah, and also being more systematic about what we're trying to learn. I feel like sometimes we go into testing without clear hypotheses about what might go wrong.
+Student B: How did that work for your research project?
 
-Student A: Right! So maybe we should spend more time upfront thinking about what assumptions we're making and how we can test those specifically.
+Student A: Much better! I finished my user interviews on time and had energy left to analyze the data properly. I'm getting better at recognizing when my emotions are driving my decisions instead of strategic thinking.
 
-Student B: Definitely. And then we need to get better at synthesizing what we learn and turning it into actionable insights for the next iteration.
+Student B: I want to keep building on the anxiety management techniques next week, and also try my coach's suggestion about rehearsing presentations with a timer to practice staying within time limits.
+
+Student A: Good plan. I want to continue with the "good enough" draft strategy and also work on my coach's feedback about asking better follow-up questions during interviews.
                 """
                 
                 # Process for Summary and Action Plan
@@ -483,21 +500,17 @@ Student B: Definitely. And then we need to get better at synthesizing what we le
                         elif current_section == 'action':
                             action_section.append(line)
                 
-                # Display Summary box
-                col1, col2 = st.columns(2)
+                # Display Summary and Action Plan as stacked sections
+                st.markdown("""
+                <div class="result-card">
+                    <h4>📝 Summary</h4>
+                    <div>{}</div>
+                </div>
+                """.format('<br>'.join(summary_section)), unsafe_allow_html=True)
                 
-                with col1:
-                    st.markdown("""
-                    <div class="result-card">
-                        <h4>📝 Summary</h4>
-                        <p>{}</p>
-                    </div>
-                    """.format(' '.join(summary_section)), unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown("""
-                    <div class="result-card">
-                        <h4>🎯 Action Plan</h4>
-                        <div>{}</div>
-                    </div>
-                    """.format('<br>'.join(action_section)), unsafe_allow_html=True)
+                st.markdown("""
+                <div class="result-card">
+                    <h4>🎯 Action Plan</h4>
+                    <div>{}</div>
+                </div>
+                """.format('<br>'.join(action_section)), unsafe_allow_html=True)
